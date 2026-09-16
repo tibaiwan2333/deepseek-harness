@@ -473,6 +473,9 @@ export class DesktopProjectManager {
           XDG_STATE_HOME: this.paths.pnpm.state,
         },
         stdio: ['ignore', 'pipe', 'pipe'],
+        // The desktop host is a GUI-subsystem process with no console; a bare
+        // node.exe child would allocate a visible console window per pnpm run.
+        windowsHide: true,
       })
       let failure: Error | undefined
       let diagnostics = ''

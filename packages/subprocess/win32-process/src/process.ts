@@ -201,6 +201,9 @@ function createRestrictedProcess(
 
 /**
  * Spawn a process with anonymous-pipe stdout/stderr and immediate stdin EOF.
+ * The child gets no console window (`CREATE_NO_WINDOW`): a GUI-subsystem or
+ * otherwise console-less parent would otherwise allocate a visible console for
+ * every command.
  * @param api - active binding table.
  * @param options - command, cwd, args, and restricted primary token.
  * @returns caller-owned process and pipe read handles.
@@ -238,7 +241,7 @@ export function spawnPipedProcess(
       api,
       options,
       buildCommandLine(options.command, options.args),
-      0,
+      abi.CREATE_NO_WINDOW,
       startupInfo,
       processInfo,
     )
@@ -517,6 +520,11 @@ function spawnJobProcess(
 
 /**
  * Spawn a restricted-token process suspended, assign its Job, then resume it.
+ * The creation flags include `CREATE_NO_WINDOW`: the WRITE_RESTRICTED token
+ * keeps the keep-alive restricting SIDs (logon SID, Everyone), so console
+ * initialization succeeds while the console window stays hidden — without it,
+ * a console-less parent (packaged desktop) allocates a visible console window
+ * for every confined command.
  * @param api - active binding table.
  * @param options - command, cwd, args, and restricted primary token.
  * @returns caller-owned process and Job handles after successful resume.
@@ -535,7 +543,7 @@ export function spawnInheritedJobProcess(
       api,
       options,
       commandLine,
-      abi.CREATE_SUSPENDED,
+      abi.CREATE_SUSPENDED | abi.CREATE_NO_WINDOW,
       startupInfo,
       processInfo,
     ))
@@ -543,6 +551,10 @@ export function spawnInheritedJobProcess(
 
 /**
  * Spawn an ordinary process suspended, assign its Job, then resume it.
+ * The creation flags include `CREATE_NO_WINDOW`, matching Node's
+ * `windowsHide` semantics: a console-subsystem child created from a
+ * console-less parent (GUI-subsystem desktop host, or a `windowsHide` runner)
+ * would otherwise allocate a visible console window per command.
  * @param api - active binding table.
  * @param options - command, cwd, argv, and target carrier descriptors.
  * @returns caller-owned process and Job handles after successful resume.
@@ -560,7 +572,7 @@ export function spawnCurrentTokenJobProcess(
       null,
       null,
       1,
-      abi.CREATE_SUSPENDED | abi.CREATE_UNICODE_ENVIRONMENT,
+      abi.CREATE_SUSPENDED | abi.CREATE_UNICODE_ENVIRONMENT | abi.CREATE_NO_WINDOW,
       environment,
       options.cwd,
       startupInfo,

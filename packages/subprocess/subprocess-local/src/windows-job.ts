@@ -140,6 +140,11 @@ export function launchWindowsJob(
       cwd: process.cwd(),
       env: runnerEnvironment(WINDOWS_RUNNER_SELECTION, invocation),
       stdio: runnerStdio(spec, true, ignoredStdinFd ?? 'pipe'),
+      // The runner needs no console: every stdio channel is a pipe or IPC.
+      // Keep it console-less in every launch mode so the runner's own creation
+      // never allocates a console window (targets carry CREATE_NO_WINDOW
+      // themselves via dsh-win32-process).
+      windowsHide: true,
     }) as RunnerProcess
   } finally {
     if (ignoredStdinFd !== undefined) closeSync(ignoredStdinFd)
