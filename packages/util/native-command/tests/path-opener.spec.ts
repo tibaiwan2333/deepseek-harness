@@ -330,15 +330,16 @@ describe('canOpenNativePath', () => {
 
 describe('native file manager', () => {
   it.each([
-    ['darwin', 'finder', '/tmp/my report.txt', 'open', ['-R', '/tmp/my report.txt']],
-    ['win32', 'explorer', 'C:\\work\\my report.txt', 'explorer.exe', ['/select,', 'file:///C:/work/my%20report.txt']],
-    ['linux', 'directory', '/tmp/a $b; report.txt', 'xdg-open', ['/tmp']],
-  ] as const)('reveals through %s without opening the file association', async (platform, manager, path, command, args) => {
+    ['darwin', 'finder', '/tmp/my report.txt', 'open', ['-R', '/tmp/my report.txt'], undefined],
+    ['win32', 'explorer', 'C:\\work\\my report.txt', 'explorer.exe', ['/select,', 'file:///C:/work/my%20report.txt'], { windowsHide: false }],
+    ['linux', 'directory', '/tmp/a $b; report.txt', 'xdg-open', ['/tmp'], undefined],
+  ] as const)('reveals through %s without opening the file association', async (platform, manager, path, command, args, options) => {
     const run = vi.fn<PathOpenerRunner>(async () => ({ stdout: '', stderr: '' }))
     const internals = { platform, env: {}, osRelease: 'generic', run }
     expect(nativeFileManager(internals)).toBe(manager)
     await revealNativePath(path, signal(), internals)
-    expect(run).toHaveBeenCalledExactlyOnceWith(command, args, expect.any(AbortSignal))
+    const expectedOptions = options === undefined ? [] : [options]
+    expect(run).toHaveBeenCalledExactlyOnceWith(command, args, expect.any(AbortSignal), ...expectedOptions)
   })
 
   it('selects a translated WSL path in Explorer and never starts a Linux file manager', async () => {
@@ -348,6 +349,20 @@ describe('native file manager', () => {
     await revealNativePath('/mnt/c/work/报告.txt', signal(), internals)
     expect(run.mock.calls.map(([cmd, args]) => [cmd, args])).toEqual([
       ['wslpath', ['-w', '/mnt/c/work/报告.txt']], ['explorer.exe', ['/select,', 'file:///C:/work/%E6%8A%A5%E5%91%8A.txt']],
+    ])
+    expect(run.mock.calls[0]?.[3]).toBeUndefined()
+    expect(run.mock.calls[1]?.[3]).toEqual({ windowsHide: false })
+  })
+
+  it('reveals Explorer with a visible window while default-app open stays hidden', async () => {
+    const run = vi.fn<PathOpenerRunner>(async () => ({ stdout: '', stderr: '' }))
+    await revealNativePath('C:\\work\\report.txt', signal(), { platform: 'win32', run })
+    await openNativePath('C:\\work\\report.txt', signal(), { platform: 'win32', run })
+    expect(run.mock.calls[0]).toEqual([
+      'explorer.exe', ['/select,', 'file:///C:/work/report.txt'], expect.any(AbortSignal), { windowsHide: false },
+    ])
+    expect(run.mock.calls[1]).toEqual([
+      'powershell.exe', ['-NoProfile', '-Command', "Invoke-Item -LiteralPath 'C:\\work\\report.txt'"], expect.any(AbortSignal),
     ])
   })
 
@@ -387,6 +402,10 @@ it.each(['win32', 'linux'] as const)('accepts Explorer delegate exit 1 through t
   })
   await expect(revealNativePath(platform === 'win32' ? 'C:\\work\\report.txt' : '/mnt/c/work/report.txt', signal(),
     { platform, env: { WSL_DISTRO_NAME: 'Ubuntu' } })).resolves.toBeUndefined()
+  const explorerCall = execFileMock.mock.calls.find(([command]) => command === 'explorer.exe')
+  const wslpathCall = execFileMock.mock.calls.find(([command]) => command === 'wslpath')
+  expect(explorerCall?.[2]).toMatchObject({ windowsHide: false })
+  if (platform === 'linux') expect(wslpathCall?.[2]).toMatchObject({ windowsHide: true })
 })
 
 it.each([2, 'ENOENT', undefined])('preserves Explorer failure %s', async (code) => {
@@ -411,5 +430,5 @@ it.each([
 ])('preserves special characters in the Explorer target %s', async (path, target) => {
   const run = vi.fn<PathOpenerRunner>().mockResolvedValue({ stdout: '', stderr: '' })
   await revealNativePath(path, signal(), { platform: 'win32', run })
-  expect(run).toHaveBeenCalledWith('explorer.exe', ['/select,', target], expect.any(AbortSignal))
+  expect(run).toHaveBeenCalledWith('explorer.exe', ['/select,', target], expect.any(AbortSignal), { windowsHide: false })
 })

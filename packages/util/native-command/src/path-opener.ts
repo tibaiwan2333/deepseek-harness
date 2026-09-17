@@ -223,7 +223,9 @@ export function nativeFileManager(internals: PathOpenerInternals = {}): NativeFi
  * @param path - absolute file path already authorized by the caller.
  * @param signal - caller lifetime; abort terminates the native command.
  * @param internals - platform, environment, and command runner for adapter tests.
- * @returns after command completion; Explorer exit 1 is accepted as a delegated handoff, not proof of selection.
+ * @returns after command completion; Explorer runs with a visible window
+ * (`windowsHide: false`), and its exit 1 is accepted as a delegated handoff,
+ * not proof of selection.
  */
 export async function revealNativePath(
   path: string, signal: AbortSignal, internals: PathOpenerInternals = {},
@@ -247,7 +249,9 @@ export async function revealNativePath(
     // Explorer parses commas itself; a file URI preserves commas and whitespace in the path.
     const target = pathToFileURL(windowsPath, { windows: true }).href.replaceAll(',', '%2C')
     try {
-      await run('explorer.exe', ['/select,', target], signal)
+      // windowsHide maps to SW_HIDE, which Explorer honours by hiding its
+      // window; the reveal must stay visible, so this call opts out.
+      await run('explorer.exe', ['/select,', target], signal, { windowsHide: false })
     } catch (error) {
       signal.throwIfAborted()
       // Explorer can exit 1 after delegating to the existing desktop process.
