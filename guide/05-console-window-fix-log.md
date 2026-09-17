@@ -1,6 +1,6 @@
 # 05 修复日志：命令行不再弹出 PowerShell 窗口
 
-> 日期：2026-09-16 · 分支：`fix/hide-windows-console-windows` · 提交：`eacb6fe`
+> 日期：2026-09-16 · 分支：`fix/hide-windows-console-windows`
 > 已推送至 fork：https://github.com/tibaiwan2333/deepseek-harness （分支同名）
 > 发起 PR：https://github.com/tibaiwan2333/deepseek-harness/pull/new/fix/hide-windows-console-windows
 
